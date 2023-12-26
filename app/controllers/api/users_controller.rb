@@ -31,6 +31,41 @@ module Api
       render json: { message: e.message }, status: :internal_server_error
     end
 
+    # POST /api/users/verify-email
+    def verify_email
+      email = email_verification_params[:email]
+
+      user = User.find_by(email: email)
+      if user.nil? || user.email_verified
+        render json: { message: "Email not found or already verified." }, status: :not_found
+      else
+        verification_service = Auths::EmailVerificationService.new
+        result = verification_service.send_verification_email(user)
+        if result[:success]
+          render json: { message: "Verification email sent successfully." }, status: :ok
+        else
+          render json: { message: result[:message] }, status: :internal_server_error
+        end
+      end
+    rescue StandardError => e
+      render json: { message: e.message }, status: :internal_server_error
+    end
+
+    # POST /api/users/password-reset-confirmation
+    def password_reset_confirmation
+      # ... existing code ...
+    end
+
+    private
+
+    def user_params
+      params.require(:user).permit(:email, :password, :verification_code)
+    end
+
+    def email_verification_params
+      params.require(:user).permit(:email)
+    end
+
     # ... other controller actions...
     # ... other private methods ...
   end
