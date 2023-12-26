@@ -12,11 +12,14 @@ module Api
       end
 
       # Validate password format
-      password_regex = /\A(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}\z/
+      # The new code has a stricter password policy, so we'll use that.
+      password_regex = /\A(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{10,}\z/
       unless user_params[:password].match?(password_regex)
-        return render json: { message: "Password must be at least 8 characters long and contain alphanumeric characters." }, status: :bad_request
+        return render json: { message: "Password must be at least 10 characters long and contain alphanumeric characters." }, status: :bad_request
       end
 
+      # The new code uses :unprocessable_entity, but the existing code uses :conflict for the same case.
+      # We'll use :conflict as it's more specific for this situation.
       if User.exists?(email: user_params[:email])
         render json: { message: "The email is already in use." }, status: :conflict
       else
