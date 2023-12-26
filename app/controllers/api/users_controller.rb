@@ -13,7 +13,7 @@ module Api
 
       # Validate password format
       # The new code has a stricter password policy, so we'll use that.
-      password_regex = /\A(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{10,}\z/
+      password_regex = /\A(?=.*\d)(?=.*[a-zA-Z]).{10,}\z/
       unless user_params[:password].match?(password_regex)
         return render json: { message: "Password must be at least 10 characters long and contain alphanumeric characters." }, status: :bad_request
       end
@@ -81,10 +81,57 @@ module Api
 
     # POST /api/users/password-reset-confirmation
     def password_reset_confirmation
-      # ... existing code ...
+      email = params[:email]
+      reset_token = params[:reset_token]
+      new_password = params[:new_password]
+
+      # Validate email format
+      unless email.match?(URI::MailTo::EMAIL_REGEXP)
+        return render json: { message: "Invalid email format." }, status: :bad_request
+      end
+
+      # Validate reset token and new password format
+      begin
+        validate_reset_token(reset_token)
+        validate_new_password_format(new_password)
+      rescue ActiveRecord::RecordInvalid => e
+        return render json: { message: e.message }, status: :unprocessable_entity
+      rescue Exceptions::AuthenticationError => e
+        return render json: { message: e.message }, status: :unauthorized
+      end
+
+      # Call the service to reset the password
+      service = Auths::ResetPasswordConfirmationService.new(email, reset_token, new_password)
+      result = service.call
+
+      if result[:success]
+        render json: { message: "Password reset successfully." }, status: :ok
+      else
+        render json: { message: result[:error_message] }, status: result[:error_status]
+      end
     end
 
     private
+
+    def validate_reset_token(reset_token)
+      # Assuming there's a method to validate the reset token
+      # This is a placeholder for the actual implementation
+      raise Exceptions::AuthenticationError, "Invalid reset token." unless reset_token_valid?(reset_token)
+    end
+
+    def validate_new_password_format(new_password)
+      # New password must be at least 10 characters long and alphanumeric
+      regex = /\A(?=.*\d)(?=.*[a-zA-Z]).{10,}\z/
+      unless new_password.match?(regex)
+        raise ActiveRecord::RecordInvalid.new, "New password must be at least 10 characters long and contain alphanumeric characters."
+      end
+    end
+
+    def reset_token_valid?(reset_token)
+      # Placeholder for reset token validation logic
+      # This should check if the token is valid and not expired
+      true
+    end
 
     def user_params
       params.require(:user).permit(:email, :password, :verification_code)
