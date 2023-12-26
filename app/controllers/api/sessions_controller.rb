@@ -7,7 +7,7 @@ module Api
       end
 
       # Step 2: Validate password format
-      unless params[:password].length >= 8 && params[:password].match?(/\A[a-zA-Z0-9]*\z/)
+      unless params[:password].length >= 10 && params[:password].match?(/\A[a-zA-Z0-9]*\z/)
         return render json: { message: "Invalid password format." }, status: :unprocessable_entity
       end
 
