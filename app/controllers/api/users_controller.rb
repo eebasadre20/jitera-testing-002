@@ -33,12 +33,37 @@ module Api
 
     # POST /api/users/verify-email
     def verify_email
-      email = email_verification_params[:email]
+      email = params[:email] || email_verification_params[:email]
+      verification_code = params[:verification_code]
 
+      # Validate email format
+      unless email.match?(URI::MailTo::EMAIL_REGEXP)
+        return render json: { message: "Invalid email format." }, status: :bad_request
+      end
+
+      # Find user by email
       user = User.find_by(email: email)
-      if user.nil? || user.email_verified
-        render json: { message: "Email not found or already verified." }, status: :not_found
+      if user.nil?
+        return render json: { message: "User not found." }, status: :not_found
+      elsif user.email_verified
+        return render json: { message: "Email already verified." }, status: :unprocessable_entity
+      end
+
+      # If verification_code is present, it means we are verifying the email
+      if verification_code
+        unless EmailVerificationService.new.verify_email_code(user: user, code: verification_code)
+          return render json: { message: "Invalid verification code." }, status: :unprocessable_entity
+        end
+
+        # Verify email
+        user.email_verified = true
+        if user.save
+          render json: { message: "Email verified successfully." }, status: :ok
+        else
+          render json: { errors: user.errors.full_messages }, status: :unprocessable_entity
+        end
       else
+        # If verification_code is not present, we are sending the verification email
         verification_service = Auths::EmailVerificationService.new
         result = verification_service.send_verification_email(user)
         if result[:success]
