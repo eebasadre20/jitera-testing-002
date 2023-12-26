@@ -3,33 +3,25 @@ module Auths
     # Import the User model
     require_relative '../../models/user'
 
-    # Remove the existing verify method if it duplicates the functionality of verify_email_verification
-    # def verify(id:, verification_token:)
-    #   # Existing logic
-    # end
-
-    # New verify_email_verification method
-    def verify_email_verification(id:, verification_token:)
-      user = User.find_by(id: id)
-      return { success: false, message: I18n.t('activerecord.errors.messages.invalid') } if user.nil?
-
-      if user.confirmation_token == verification_token
+    # New verify_email method
+    def verify_email(id:, email:)
+      user = User.find_by(id: id, email: email)
+      if user
         user.email_verified = true
-        user.updated_at = Time.current
         if user.save
-          { success: true, message: I18n.t('devise.confirmations.confirmed') }
+          { success: true, message: I18n.t('devise.confirmations.email_verified') }
         else
           { success: false, message: user.errors.full_messages.to_sentence }
         end
       else
-        { success: false, message: I18n.t('devise.failure.unverified_email') }
+        { success: false, message: I18n.t('activerecord.errors.messages.invalid') }
       end
     rescue StandardError => e
       { success: false, message: e.message }
     end
 
-    # Remove the existing verify_email method as it is no longer necessary
-    # def verify_email(id:, email:)
+    # Remove the existing verify_email_verification method as it duplicates the functionality of verify_email
+    # def verify_email_verification(id:, verification_token:)
     #   # Existing logic
     # end
   end
