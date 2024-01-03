@@ -1,32 +1,31 @@
 
 module Auths
-  class EmailVerificationService < BaseService
-    require_relative '../../models/email_confirmation'
+  class EmailVerificationService
+    require_relative '../../models/email_confirmation_token'
     require_relative '../../models/user'
 
-    def verify_email(id:, email:, token:)
-      user = User.find_by(id: id, email: email)
-      if user
-        email_confirmation = EmailConfirmation.find_by(token: token)
-        if email_confirmation.nil?
-          { success: false, message: I18n.t('activerecord.errors.messages.invalid') }
-        elsif email_confirmation.expires_at < Time.current
-          { success: false, message: I18n.t('activerecord.errors.messages.reset_token_invalid_or_expired') }
+    def verify_email(token:)
+      email_confirmation_token = EmailConfirmationToken.find_by(token: token, used: false)
+      if email_confirmation_token.nil? || email_confirmation_token.expires_at < Time.current
+        { success: false, message: I18n.t('activerecord.errors.messages.invalid') }
+      elsif email_confirmation_token.used
+        { success: false, message: I18n.t('activerecord.errors.messages.reset_token_invalid_or_expired') }
+      else
+        user = User.find_by(id: email_confirmation_token.user_id)
+        if user.nil?
+          { success: false, message: I18n.t('devise.failure.unverified_email') }
+        elsif user.email_confirmed
+          { success: false, message: I18n.t('activerecord.errors.messages.already_confirmed') }
         else
-          email_confirmation.confirmed = true
-          if email_confirmation.save
-            user.email_verified = true
-            if user.save
-              { success: true, message: I18n.t('devise.confirmations.email_verified') }
-            else
-              { success: false, message: user.errors.full_messages.to_sentence }
-            end
+          user.email_confirmed = true
+          if user.save
+            email_confirmation_token.used = true
+            email_confirmation_token.save
+            { success: true, message: I18n.t('devise.confirmations.email_verified') }
           else
-            { success: false, message: email_confirmation.errors.full_messages.to_sentence }
+            { success: false, message: user.errors.full_messages.to_sentence }
           end
         end
-      else
-        { success: false, message: I18n.t('devise.failure.unverified_email') }
       end
     rescue StandardError => e
       { success: false, message: e.message }
