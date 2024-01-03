@@ -5,11 +5,11 @@ module Auths
     require_relative '../../models/user'
 
     def verify_email(token:)
+      return { success: false, message: I18n.t('activerecord.errors.messages.blank') } if token.blank?
+
       email_confirmation_token = EmailConfirmationToken.find_by(token: token, used: false)
       if email_confirmation_token.nil? || email_confirmation_token.expires_at < Time.current
         { success: false, message: I18n.t('activerecord.errors.messages.invalid') }
-      elsif email_confirmation_token.used
-        { success: false, message: I18n.t('activerecord.errors.messages.reset_token_invalid_or_expired') }
       else
         user = User.find_by(id: email_confirmation_token.user_id)
         if user.nil?
@@ -18,10 +18,12 @@ module Auths
           { success: false, message: I18n.t('activerecord.errors.messages.already_confirmed') }
         else
           user.email_confirmed = true
+          user.updated_at = Time.current
+          email_confirmation_token.updated_at = Time.current
           if user.save
             email_confirmation_token.used = true
             email_confirmation_token.save
-            { success: true, message: I18n.t('devise.confirmations.email_verified') }
+            { success: true, user_id: user.id, message: I18n.t('devise.confirmations.email_verified') }
           else
             { success: false, message: user.errors.full_messages.to_sentence }
           end
