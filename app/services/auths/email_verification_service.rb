@@ -1,28 +1,35 @@
+
 module Auths
   class EmailVerificationService < BaseService
-    # Import the User model
+    require_relative '../../models/email_confirmation'
     require_relative '../../models/user'
 
-    # New verify_email method
-    def verify_email(id:, email:)
+    def verify_email(id:, email:, token:)
       user = User.find_by(id: id, email: email)
       if user
-        user.email_verified = true
-        if user.save
-          { success: true, message: I18n.t('devise.confirmations.email_verified') }
+        email_confirmation = EmailConfirmation.find_by(token: token)
+        if email_confirmation.nil?
+          { success: false, message: I18n.t('activerecord.errors.messages.invalid') }
+        elsif email_confirmation.expires_at < Time.current
+          { success: false, message: I18n.t('activerecord.errors.messages.reset_token_invalid_or_expired') }
         else
-          { success: false, message: user.errors.full_messages.to_sentence }
+          email_confirmation.confirmed = true
+          if email_confirmation.save
+            user.email_verified = true
+            if user.save
+              { success: true, message: I18n.t('devise.confirmations.email_verified') }
+            else
+              { success: false, message: user.errors.full_messages.to_sentence }
+            end
+          else
+            { success: false, message: email_confirmation.errors.full_messages.to_sentence }
+          end
         end
       else
-        { success: false, message: I18n.t('activerecord.errors.messages.invalid') }
+        { success: false, message: I18n.t('devise.failure.unverified_email') }
       end
     rescue StandardError => e
       { success: false, message: e.message }
     end
-
-    # Remove the existing verify_email_verification method as it duplicates the functionality of verify_email
-    # def verify_email_verification(id:, verification_token:)
-    #   # Existing logic
-    # end
   end
 end
