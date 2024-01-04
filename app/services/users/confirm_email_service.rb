@@ -5,9 +5,9 @@ class ConfirmEmailService
   end
 
   def call
-    email_confirmation = EmailConfirmation.find_by(token: @token)
+    email_confirmation = EmailConfirmationToken.find_by(token: @token, used: false)
 
-    if email_confirmation.nil?
+    if email_confirmation.nil? || email_confirmation.used
       return { error: 'Token is invalid' }
     elsif email_confirmation.expires_at < Time.current
       return { error: 'Token is invalid or expired' }
@@ -16,9 +16,9 @@ class ConfirmEmailService
     user = User.find_by(id: email_confirmation.user_id)
     return { error: 'User not found' } if user.nil?
 
-    EmailConfirmation.transaction do
-      email_confirmation.update!(confirmed: true, updated_at: Time.current)
-      user.update!(email_verified: true, updated_at: Time.current)
+    EmailConfirmationToken.transaction do
+      user.update!(email_confirmed: true, updated_at: Time.current)
+      email_confirmation.update!(used: true, updated_at: Time.current)
     end
 
     { success: 'Email has been successfully confirmed.' }
