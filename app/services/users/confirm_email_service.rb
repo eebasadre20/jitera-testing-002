@@ -5,7 +5,7 @@ class ConfirmEmailService
   end
 
   def call
-    email_confirmation = EmailConfirmationToken.find_by(token: @token, used: false)
+    email_confirmation = EmailConfirmationToken.find_by(token: @token)
 
     if email_confirmation.nil? || email_confirmation.used
       return { error: 'Token is invalid' }
